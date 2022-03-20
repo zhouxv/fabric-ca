@@ -395,7 +395,7 @@ func TestCAgetCaCert(t *testing.T) {
 	cfg = CAConfig{}
 
 	cfg.CSR = api.CSRInfo{CA: &csr.CAConfig{}}
-	cfg.CSR.CA.Expiry = "not-a-date"
+	cfg.CSR.CA.Expiry = "9999h"
 	_, err := newCA(configFile, &cfg, &srv, false)
 	t.Log("getCaCert error: ", err)
 	if err == nil {

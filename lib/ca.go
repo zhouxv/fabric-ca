@@ -10,6 +10,7 @@ import (
 	"bytes"
 	"crypto/dsa"
 	"crypto/ecdsa"
+	"crypto/pqc"
 	"crypto/rsa"
 	"crypto/x509"
 	"encoding/pem"
@@ -1170,6 +1171,15 @@ func validateMatchingKeys(cert *x509.Certificate, keyFile string) error {
 
 		if privKey.PublicKey.X.Cmp(pubKey.X) != 0 {
 			return errors.New("Public key and private key do not match")
+		}
+	//zhouxv todo
+	case *pqc.PublicKey:
+		privKey, err := util.GetPQCPrivateKey(keyPEM)
+		if err != nil {
+			return err
+		}
+		if !privKey.PublicKey.Equal(pubKey) {
+			return errors.New("PQC Public key and private key do not match")
 		}
 	}
 

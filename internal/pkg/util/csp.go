@@ -9,6 +9,7 @@ package util
 import (
 	"crypto"
 	"crypto/ecdsa"
+	"crypto/pqc"
 	"crypto/rsa"
 	"crypto/tls"
 	"crypto/x509"
@@ -30,9 +31,85 @@ import (
 	"github.com/hyperledger/fabric/bccsp"
 	"github.com/hyperledger/fabric/bccsp/factory"
 	cspsigner "github.com/hyperledger/fabric/bccsp/signer"
-	"github.com/hyperledger/fabric/bccsp/utils"
+	"github.com/hyperledger/fabric/bccsp/sw"
 	"github.com/pkg/errors"
 )
+
+func isPQCAlgoValid(algo string) bool {
+	var pqcAlgo = [...]string{
+		"Dilithium2",
+		"Dilithium3",
+		"Dilithium5",
+		"Dilithium2_AES",
+		"Dilithium3_AES",
+		"Dilithium5_AES",
+		"Falcon_512",
+		"Falcon_1024",
+		"Rainbow_I_Classic",
+		"Rainbow_I_Circumzenithal",
+		"Rainbow_I_Compressed",
+		"Rainbow_III_Classic",
+		"Rainbow_III_Circumzenithal",
+		"Rainbow_III_Compressed",
+		"Rainbow_V_Classic",
+		"Rainbow_V_Circumzenithal",
+		"Rainbow_V_Compressed",
+		"SPHINCS_Haraka_128f_robust",
+		"SPHINCS_Haraka_128f_simple",
+		"SPHINCS_Haraka_128s_robust",
+		"SPHINCS_Haraka_128s_simple",
+		"SPHINCS_Haraka_192f_robust",
+		"SPHINCS_Haraka_192f_simple",
+		"SPHINCS_Haraka_192s_robust",
+		"SPHINCS_Haraka_192s_simple",
+		"SPHINCS_Haraka_256f_robust",
+		"SPHINCS_Haraka_256f_simple",
+		"SPHINCS_Haraka_256s_robust",
+		"SPHINCS_Haraka_256s_simple",
+		"SPHINCS_SHA256_128f_robust",
+		"SPHINCS_SHA256_128f_simple",
+		"SPHINCS_SHA256_128s_robust",
+		"SPHINCS_SHA256_128s_simple",
+		"SPHINCS_SHA256_192f_robust",
+		"SPHINCS_SHA256_192f_simple",
+		"SPHINCS_SHA256_192s_robust",
+		"SPHINCS_SHA256_192s_simple",
+		"SPHINCS_SHA256_256f_robust",
+		"SPHINCS_SHA256_256f_simple",
+		"SPHINCS_SHA256_256s_robust",
+		"SPHINCS_SHA256_256s_simple",
+		"SPHINCS_SHAKE256_128f_robust",
+		"SPHINCS_SHAKE256_128f_simple",
+		"SPHINCS_SHAKE256_128s_robust",
+		"SPHINCS_SHAKE256_128s_simple",
+		"SPHINCS_SHAKE256_192f_robust",
+		"SPHINCS_SHAKE256_192f_simple",
+		"SPHINCS_SHAKE256_192s_robust",
+		"SPHINCS_SHAKE256_192s_simple",
+		"SPHINCS_SHAKE256_256f_robust",
+		"SPHINCS_SHAKE256_256f_simple",
+		"SPHINCS_SHAKE256_256s_robust",
+		"SPHINCS_SHAKE256_256s_simple",
+		"picnic_L1_FS",
+		"picnic_L1_UR",
+		"picnic_L1_full",
+		"picnic_L3_FS",
+		"picnic_L3_UR",
+		"picnic_L3_full",
+		"picnic_L5_FS",
+		"picnic_L5_UR",
+		"picnic_L5_full",
+		"picnic3_L1",
+		"picnic3_L3",
+		"picnic3_L5",
+	}
+	for _, v := range pqcAlgo {
+		if strings.Compare(v, algo) == 0 {
+			return true
+		}
+	}
+	return false
+}
 
 // GetDefaultBCCSP returns the default BCCSP
 func GetDefaultBCCSP() bccsp.BCCSP {
@@ -111,18 +188,18 @@ func getBCCSPKeyOpts(kr *csr.KeyRequest, ephemeral bool) (opts bccsp.KeyGenOpts,
 	}
 	log.Debugf("generate key from request: algo=%s, size=%d", kr.Algo(), kr.Size())
 	switch kr.Algo() {
-	case "rsa":
-		switch kr.Size() {
-		case 2048:
-			return &bccsp.RSA2048KeyGenOpts{Temporary: ephemeral}, nil
-		case 3072:
-			return &bccsp.RSA3072KeyGenOpts{Temporary: ephemeral}, nil
-		case 4096:
-			return &bccsp.RSA4096KeyGenOpts{Temporary: ephemeral}, nil
-		default:
-			// Need to add a way to specify arbitrary RSA key size to bccsp
-			return nil, errors.Errorf("Invalid RSA key size: %d", kr.Size())
-		}
+	// case "rsa":
+	// 	switch kr.Size() {
+	// 	case 2048:
+	// 		return &bccsp.RSA2048KeyGenOpts{Temporary: ephemeral}, nil
+	// 	case 3072:
+	// 		return &bccsp.RSA3072KeyGenOpts{Temporary: ephemeral}, nil
+	// 	case 4096:
+	// 		return &bccsp.RSA4096KeyGenOpts{Temporary: ephemeral}, nil
+	// 	default:
+	// 		// Need to add a way to specify arbitrary RSA key size to bccsp
+	// 		return nil, errors.Errorf("Invalid RSA key size: %d", kr.Size())
+	// 	}
 	case "ecdsa":
 		switch kr.Size() {
 		case 256:
@@ -136,8 +213,12 @@ func getBCCSPKeyOpts(kr *csr.KeyRequest, ephemeral bool) (opts bccsp.KeyGenOpts,
 		default:
 			return nil, errors.Errorf("Invalid ECDSA key size: %d", kr.Size())
 		}
+
 	default:
-		return nil, errors.Errorf("Invalid algorithm: %s", kr.Algo())
+		if isPQCAlgoValid(kr.Algo()) {
+			return &bccsp.PQCKeyGenOpts{SignatureScheme: kr.Algo(), Temporary: ephemeral}, nil
+		}
+		return nil, errors.Errorf("Invalid pqc algorithm: %s", kr.Algo())
 	}
 }
 
@@ -212,13 +293,13 @@ func ImportBCCSPKeyFromPEM(keyFile string, myCSP bccsp.BCCSP, temporary bool) (b
 	if err != nil {
 		return nil, err
 	}
-	key, err := utils.PEMtoPrivateKey(keyBuff, nil)
+	key, err := sw.PemToPrivateKey(keyBuff, nil)
 	if err != nil {
 		return nil, errors.WithMessage(err, fmt.Sprintf("Failed parsing private key from %s", keyFile))
 	}
 	switch key := key.(type) {
 	case *ecdsa.PrivateKey:
-		priv, err := utils.PrivateKeyToDER(key)
+		priv, err := sw.PrivateKeyToDER(key)
 		if err != nil {
 			return nil, errors.WithMessage(err, fmt.Sprintf("Failed to convert ECDSA private key for '%s'", keyFile))
 		}
@@ -229,6 +310,13 @@ func ImportBCCSPKeyFromPEM(keyFile string, myCSP bccsp.BCCSP, temporary bool) (b
 		return sk, nil
 	case *rsa.PrivateKey:
 		return nil, errors.Errorf("Failed to import RSA key from %s; RSA private key import is not supported", keyFile)
+	case *pqc.SecretKey:
+		sk, err := myCSP.KeyImport(key, &bccsp.PQCPublicKeyImportOpts{Temporary: temporary})
+		if err != nil {
+			return nil, errors.WithMessage(err, fmt.Sprintf("Failed to import PQC private key for '%s'", keyFile))
+		}
+		return sk, nil
+
 	default:
 		return nil, errors.Errorf("Failed to import key from %s: invalid secret key type", keyFile)
 	}

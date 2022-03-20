@@ -9,6 +9,7 @@ package util
 import (
 	"bytes"
 	"crypto/ecdsa"
+	"crypto/pqc"
 	"crypto/rsa"
 	"crypto/x509"
 	"encoding/base64"
@@ -33,6 +34,7 @@ import (
 	"github.com/cloudflare/cfssl/log"
 	"github.com/hyperledger/fabric-ca/lib/caerrors"
 	"github.com/hyperledger/fabric/bccsp"
+	"github.com/hyperledger/fabric/bccsp/sw"
 	"github.com/pkg/errors"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
@@ -160,6 +162,11 @@ func CreateToken(csp bccsp.BCCSP, cert []byte, key bccsp.Key, method, uri string
 		if err != nil {
 			return "", err
 		}
+	case *pqc.PublicKey:
+		token, err = GenPQCToken(csp, cert, key, method, uri, body)
+		if err != nil {
+			return "", err
+		}
 	}
 	return token, nil
 }
@@ -189,6 +196,38 @@ func genECDSAToken(csp bccsp.BCCSP, key bccsp.Key, b64cert, payload string) (str
 	}
 
 	b64sig := B64Encode(ecSignature)
+	token := b64cert + "." + b64sig
+
+	return token, nil
+
+}
+
+//GenPQCToken signs the http body and cert with PQC using private key
+func GenPQCToken(csp bccsp.BCCSP, cert []byte, key bccsp.Key, method, uri string, body []byte) (string, error) {
+	b64body := B64Encode(body)
+	b64cert := B64Encode(cert)
+	b64uri := B64Encode([]byte(uri))
+	payload := method + "." + b64uri + "." + b64body + "." + b64cert
+
+	return genPQCToken(csp, key, b64cert, payload)
+}
+
+func genPQCToken(csp bccsp.BCCSP, key bccsp.Key, b64cert, payload string) (string, error) {
+	// digest, digestError := csp.Hash([]byte(payload), &bccsp.SHAOpts{})
+	// if digestError != nil {
+	// 	return "", errors.WithMessage(digestError, fmt.Sprintf("Hash failed on '%s'", payload))
+	// }
+
+	//PQC算法内置hash，不需要做摘要
+	pqcSignature, err := csp.Sign(key, []byte(payload), nil)
+	if err != nil {
+		return "", errors.WithMessage(err, "BCCSP signature generation failure")
+	}
+	if len(pqcSignature) == 0 {
+		return "", errors.New("BCCSP signature creation failed. Signature must be different than nil")
+	}
+
+	b64sig := B64Encode(pqcSignature)
 	token := b64cert + "." + b64sig
 
 	return token, nil
@@ -318,6 +357,21 @@ func GetRSAPrivateKey(raw []byte) (*rsa.PrivateKey, error) {
 		}
 	}
 	return nil, errors.Wrap(err, "Failed parsing RSA private key")
+}
+
+//zhouxv todo
+//GetPQCPrivateKey get *pqc.SecretKey from key pem
+func GetPQCPrivateKey(raw []byte) (*pqc.SecretKey, error) {
+	sk, err := sw.PemToPrivateKey(raw, nil)
+	if err == nil {
+		switch key := sk.(type) {
+		case *pqc.SecretKey:
+			return key, nil
+		default:
+			return nil, errors.New("Invalid private key type in PKCS#8 wrapping")
+		}
+	}
+	return nil, errors.Wrap(err, "Failed parsing PQC private key")
 }
 
 // B64Encode base64 encodes bytes
