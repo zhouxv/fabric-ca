@@ -7,6 +7,7 @@ import (
 	"crypto"
 	"crypto/ecdsa"
 	"crypto/elliptic"
+	"crypto/pqc"
 	"crypto/rsa"
 	"crypto/tls"
 	"crypto/x509"
@@ -18,7 +19,7 @@ import (
 	"io/ioutil"
 	"os"
 
-	"github.com/google/certificate-transparency-go"
+	ct "github.com/google/certificate-transparency-go"
 	cttls "github.com/google/certificate-transparency-go/tls"
 	ctx509 "github.com/google/certificate-transparency-go/x509"
 	"golang.org/x/crypto/ocsp"
@@ -463,6 +464,17 @@ func SignerAlgo(priv crypto.Signer) x509.SignatureAlgorithm {
 		default:
 			return x509.ECDSAWithSHA1
 		}
+	case *pqc.PublicKey:
+		l, err := pqc.GetLib()
+		if err != nil {
+			fmt.Errorf("%v", err)
+			return x509.UnknownSignatureAlgorithm
+		}
+		id, err := l.Getx509Count(pub.Sig.Algorithm)
+		if err != nil {
+			return x509.UnknownSignatureAlgorithm
+		}
+		return x509.SignatureAlgorithm(id)
 	default:
 		return x509.UnknownSignatureAlgorithm
 	}

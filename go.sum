@@ -357,6 +357,8 @@ github.com/willf/bitset v1.1.9/go.mod h1:RjeCKbqT1RxIR/KWY6phxZiaY1IyutSBfGjNPyS
 github.com/willf/bitset v1.1.10/go.mod h1:RjeCKbqT1RxIR/KWY6phxZiaY1IyutSBfGjNPySAYV4=
 github.com/xiang90/probing v0.0.0-20160813154853-07dd2e8dfe18/go.mod h1:UETIi67q53MR2AWcXfiuqkDkRtnGDLqkBTpCHuJHxtU=
 github.com/xordataexchange/crypt v0.0.3-0.20170626215501-b2862e3d0a77/go.mod h1:aYKd//L2LvnjZzWKhF00oedf4jCCReLcmhLdhm1A27Q=
+github.com/zhouxv/cfssl v0.0.0-20220320083421-6e22181be225 h1:bO+7zDVfGCtB1U66ieDdBUjzFensXMRQIOwVkXKf3O4=
+github.com/zhouxv/cfssl v0.0.0-20220320083421-6e22181be225/go.mod h1:KManx/OJPb5QY+y0+o/898AMcM128sF0bURvoVUSjTo=
 github.com/zhouxv/fabric v0.0.0 h1:mYgNWVycA5fiRQgOy4lJxqYOY7UP38sHRfaWm2nYxts=
 github.com/zhouxv/fabric v0.0.0/go.mod h1:ekhfJp1snOY/SDEftxwnBtI9QFWu7uVxE2W4YfP2ZL8=
 github.com/zhouxv/fabric v1.4.13-0.20220319100009-b17177f4f541 h1:SRB85rD1Z59BFoTNh2ohQMx86bGsjAUEhjR/A2snS4I=

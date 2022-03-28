@@ -5,12 +5,14 @@ import (
 	"crypto"
 	"crypto/ecdsa"
 	"crypto/elliptic"
+	"crypto/pqc"
 	"crypto/rsa"
 	"crypto/sha1"
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/asn1"
 	"errors"
+	"fmt"
 	"math/big"
 	"net/http"
 	"strings"
@@ -164,6 +166,17 @@ func DefaultSigAlgo(priv crypto.Signer) x509.SignatureAlgorithm {
 		default:
 			return x509.ECDSAWithSHA1
 		}
+	case *pqc.PublicKey:
+		l, err := pqc.GetLib()
+		if err != nil {
+			fmt.Errorf("%v", err)
+			return x509.UnknownSignatureAlgorithm
+		}
+		id, err := l.Getx509Count(pub.Sig.Algorithm)
+		if err != nil {
+			return x509.UnknownSignatureAlgorithm
+		}
+		return x509.SignatureAlgorithm(id)
 	default:
 		return x509.UnknownSignatureAlgorithm
 	}

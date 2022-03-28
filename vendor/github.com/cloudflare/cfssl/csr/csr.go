@@ -5,6 +5,7 @@ import (
 	"crypto"
 	"crypto/ecdsa"
 	"crypto/elliptic"
+	"crypto/pqc"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
@@ -132,12 +133,12 @@ type CAConfig struct {
 // A CertificateRequest encapsulates the API interface to the
 // certificate request functionality.
 type CertificateRequest struct {
-	CN           string     `json:"CN" yaml:"CN"`
-	Names        []Name     `json:"names" yaml:"names"`
-	Hosts        []string   `json:"hosts" yaml:"hosts"`
+	CN           string      `json:"CN" yaml:"CN"`
+	Names        []Name      `json:"names" yaml:"names"`
+	Hosts        []string    `json:"hosts" yaml:"hosts"`
 	KeyRequest   *KeyRequest `json:"key,omitempty" yaml:"key,omitempty"`
-	CA           *CAConfig  `json:"ca,omitempty" yaml:"ca,omitempty"`
-	SerialNumber string     `json:"serialnumber,omitempty" yaml:"serialnumber,omitempty"`
+	CA           *CAConfig   `json:"ca,omitempty" yaml:"ca,omitempty"`
+	SerialNumber string      `json:"serialnumber,omitempty" yaml:"serialnumber,omitempty"`
 }
 
 // New returns a new, empty CertificateRequest with a
@@ -212,6 +213,17 @@ func ParseRequest(req *CertificateRequest) (csr, key []byte, err error) {
 		}
 		block := pem.Block{
 			Type:  "EC PRIVATE KEY",
+			Bytes: key,
+		}
+		key = pem.EncodeToMemory(&block)
+	case *pqc.SecretKey:
+		key, _ = pqc.MarshalPKIXPrivateKey(priv)
+		if err != nil {
+			err = cferr.Wrap(cferr.PrivateKeyError, cferr.Unknown, err)
+			return
+		}
+		block := pem.Block{
+			Type:  "PQC PRIVATE KEY",
 			Bytes: key,
 		}
 		key = pem.EncodeToMemory(&block)

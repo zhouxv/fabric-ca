@@ -5,6 +5,7 @@ package derhelpers
 import (
 	"crypto"
 	"crypto/ecdsa"
+	"crypto/pqc"
 	"crypto/rsa"
 	"crypto/x509"
 
@@ -27,8 +28,11 @@ func ParsePrivateKeyDER(keyDER []byte) (key crypto.Signer, err error) {
 					// the final error. The reason might be
 					// we don't want to leak any info about
 					// the private key.
-					return nil, cferr.New(cferr.PrivateKeyError,
-						cferr.ParseFailed)
+					generalKey, err = pqc.ParsePKIXPrivateKey(keyDER)
+					if err != nil {
+						return nil, cferr.New(cferr.PrivateKeyError,
+							cferr.ParseFailed)
+					}
 				}
 			}
 		}
@@ -41,6 +45,8 @@ func ParsePrivateKeyDER(keyDER []byte) (key crypto.Signer, err error) {
 		return generalKey.(*ecdsa.PrivateKey), nil
 	case ed25519.PrivateKey:
 		return generalKey.(ed25519.PrivateKey), nil
+	case *pqc.SecretKey:
+		return generalKey.(*pqc.SecretKey), nil
 	}
 
 	// should never reach here

@@ -5,6 +5,7 @@ package initca
 import (
 	"crypto"
 	"crypto/ecdsa"
+	"crypto/pqc"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
@@ -204,6 +205,15 @@ func RenewFromSigner(ca *x509.Certificate, priv crypto.Signer) ([]byte, error) {
 			return nil, cferr.New(cferr.PrivateKeyError, cferr.KeyMismatch)
 		}
 		if ca.PublicKey.(*ecdsa.PublicKey).X.Cmp(ecdsaPublicKey.X) != 0 {
+			return nil, cferr.New(cferr.PrivateKeyError, cferr.KeyMismatch)
+		}
+	case ca.PublicKeyAlgorithm == x509.PQC:
+		var pqcPublicKey *pqc.PublicKey
+		var ok bool
+		if pqcPublicKey, ok = priv.Public().(*pqc.PublicKey); !ok {
+			return nil, cferr.New(cferr.PrivateKeyError, cferr.KeyMismatch)
+		}
+		if ca.PublicKey.(*pqc.PublicKey).Equal(pqcPublicKey) {
 			return nil, cferr.New(cferr.PrivateKeyError, cferr.KeyMismatch)
 		}
 	default:
