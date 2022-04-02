@@ -25,7 +25,7 @@ import (
 
 func sign(algo string, sk []byte, digest []byte, opts bccsp.SignerOpts) ([]byte, error) {
 	signer := oqs.Signature{}
-	defer signer.Clean()
+	// defer signer.Clean()
 	if err := signer.Init(algo, sk); err != nil {
 		return nil, fmt.Errorf("Failed PQC Init %s key [%s]", algo, err)
 	}
@@ -35,7 +35,7 @@ func sign(algo string, sk []byte, digest []byte, opts bccsp.SignerOpts) ([]byte,
 
 func verify(algo string, pk []byte, signature, digest []byte, opts bccsp.SignerOpts) (bool, error) {
 	verifier := oqs.Signature{}
-	defer verifier.Clean() // clean up even in case of panic
+	// defer verifier.Clean() // clean up even in case of panic
 
 	if err := verifier.Init(algo, nil); err != nil {
 		return false, fmt.Errorf("Failed PQC Init %s key [%s]", algo, err)

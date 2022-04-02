@@ -89,7 +89,7 @@ github.com/hashicorp/hcl/hcl/token
 github.com/hashicorp/hcl/json/parser
 github.com/hashicorp/hcl/json/scanner
 github.com/hashicorp/hcl/json/token
-# github.com/hyperledger/fabric v1.4.11 => github.com/zhouxv/fabric v1.4.13-0.20220319163203-19d166de80dc
+# github.com/hyperledger/fabric v1.4.11 => github.com/zhouxv/fabric v1.4.13-0.20220402083447-c01806a75654
 ## explicit
 github.com/hyperledger/fabric/bccsp
 github.com/hyperledger/fabric/bccsp/factory
@@ -189,6 +189,7 @@ github.com/onsi/gomega/types
 ## explicit
 github.com/op/go-logging
 # github.com/open-quantum-safe/liboqs-go v0.0.0-20220105163900-e0f759d70fa5
+## explicit
 github.com/open-quantum-safe/liboqs-go/oqs
 # github.com/pelletier/go-toml v1.2.0
 github.com/pelletier/go-toml

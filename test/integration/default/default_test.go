@@ -19,6 +19,7 @@ import (
 	"math/big"
 	"os"
 	"path/filepath"
+	"strconv"
 	"testing"
 	"time"
 
@@ -26,12 +27,15 @@ import (
 	"github.com/cloudflare/cfssl/config"
 	"github.com/cloudflare/cfssl/log"
 	"github.com/hyperledger/fabric-ca/cmd/fabric-ca-client/command"
+	"github.com/hyperledger/fabric-ca/internal/pkg/api"
 	"github.com/hyperledger/fabric-ca/internal/pkg/util"
 	"github.com/hyperledger/fabric-ca/lib"
 	"github.com/hyperledger/fabric-ca/lib/metadata"
 	"github.com/hyperledger/fabric-ca/lib/server/db"
+	"github.com/hyperledger/fabric/bccsp/factory"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
+	"github.com/xuri/excelize/v2"
 )
 
 const (
@@ -45,37 +49,6 @@ var (
 	defaultServerHomeDir   = "defaultServerDir"
 	storeCertsDir          = "/tmp/testCerts"
 )
-
-func TestMain(m *testing.M) {
-	var err error
-
-	metadata.Version = "1.1.0"
-
-	os.RemoveAll(defaultServerHomeDir)
-	defaultServer, err = getDefaultServer()
-	if err != nil {
-		log.Errorf("Failed to get instance of server: %s", err)
-		os.Exit(1)
-	}
-
-	err = defaultServer.Start()
-	if err != nil {
-		log.Errorf("Failed to start server: %s", err)
-		os.Exit(1)
-	}
-
-	rc := m.Run()
-
-	err = defaultServer.Stop()
-	if err != nil {
-		log.Errorf("Failed to stop server: %s, integration test results: %d", err, rc)
-		os.Exit(1)
-	}
-
-	os.RemoveAll(defaultServerHomeDir)
-	os.RemoveAll(storeCertsDir)
-	os.Exit(rc)
-}
 
 func TestListCertificateCmdNegative(t *testing.T) {
 	var err error
@@ -384,69 +357,6 @@ func TestRevokeWithColons(t *testing.T) {
 	assert.NoError(t, err, "Failed to revoke certificate, when serial number and AKI contained colons")
 }
 
-func getDefaultServer() (*lib.Server, error) {
-	affiliations := map[string]interface{}{
-		"hyperledger": map[string]interface{}{
-			"fabric":    []string{"ledger", "orderer", "security"},
-			"fabric-ca": nil,
-			"sdk":       nil,
-		},
-		"org2":      []string{"dept1"},
-		"org1":      nil,
-		"org2dept1": nil,
-	}
-	profiles := map[string]*config.SigningProfile{
-		"tls": &config.SigningProfile{
-			Usage:        []string{"signing", "key encipherment", "server auth", "client auth", "key agreement"},
-			ExpiryString: "8760h",
-		},
-		"ca": &config.SigningProfile{
-			Usage:        []string{"cert sign", "crl sign"},
-			ExpiryString: "8760h",
-			CAConstraint: config.CAConstraint{
-				IsCA:       true,
-				MaxPathLen: 0,
-			},
-		},
-	}
-	defaultProfile := &config.SigningProfile{
-		Usage:        []string{"cert sign"},
-		ExpiryString: "8760h",
-	}
-	srv := &lib.Server{
-		Config: &lib.ServerConfig{
-			Port:  defaultServerPort,
-			Debug: true,
-		},
-		CA: lib.CA{
-			Config: &lib.CAConfig{
-				Intermediate: lib.IntermediateCA{
-					ParentServer: lib.ParentServer{
-						URL: "",
-					},
-				},
-				Affiliations: affiliations,
-				Registry: lib.CAConfigRegistry{
-					MaxEnrollments: -1,
-				},
-				Signing: &config.Signing{
-					Profiles: profiles,
-					Default:  defaultProfile,
-				},
-				Version: "1.1.0", // The default test server/ca should use the latest version
-			},
-		},
-		HomeDir: defaultServerHomeDir,
-	}
-	// The bootstrap user's affiliation is the empty string, which
-	// means the user is at the affiliation root
-	err := srv.RegisterBootstrapUser("admin", "adminpw", "")
-	if err != nil {
-		return nil, err
-	}
-	return srv, nil
-}
-
 func testInsertCertificate(req *certdb.CertificateRecord, id string, srv *lib.Server) error {
 	priv, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
@@ -504,4 +414,175 @@ func testInsertCertificate(req *certdb.CertificateRecord, id string, srv *lib.Se
 	}
 
 	return err
+}
+
+func TestMain(m *testing.M) {
+	// f := excelize.NewFile()
+	// // 根据指定路径保存文件
+	// if err := f.SaveAs("ca.xlsx"); err != nil {
+	// 	fmt.Println(err)
+	// }
+	pqcStrings := []string{
+		// "ecdsa",
+		// "ecdsa",
+		"Dilithium2",
+		// "Dilithium3",
+		// "Dilithium5",
+		// "Falcon-512",
+		// "Falcon-1024",
+		// "picnic3_L1",
+		// "picnic3_L3",
+		// "picnic3_L5",
+		// "Rainbow-I-Circumzenithal",
+		// "Rainbow-III-Circumzenithal",
+		// "Rainbow-V-Circumzenithal",
+		// "SPHINCS+-SHA256-128s-robust",
+		// "SPHINCS+-SHA256-128s-simple",
+		// "SPHINCS+-SHA256-192s-robust",
+		// "SPHINCS+-SHA256-192s-simple",
+		// "SPHINCS+-SHA256-256s-robust",
+		// "SPHINCS+-SHA256-256s-simple",
+	}
+
+	size := 384
+
+	column := []string{"A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N"}
+
+	for index, v := range pqcStrings {
+		if index == 0 {
+			size = 256
+		} else {
+			size = 384
+		}
+		testMain(m, column[index], v, size)
+	}
+
+}
+
+func testMain(m *testing.M, column string, algo string, size int) {
+	f, err := excelize.OpenFile("/home/dinglab-dell/go-workspace/fabric-ca/test/integration/default/ca.xlsx")
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	defer func() {
+		if err := f.Close(); err != nil {
+			fmt.Println(err)
+		}
+	}()
+
+	f.SetCellValue("Sheet1", column+strconv.Itoa(1), algo)
+
+	var i int
+	for i < 1000 {
+		i++
+		fmt.Println(algo, i)
+
+		start := time.Now()
+		var err error
+
+		metadata.Version = "1.1.0"
+
+		os.RemoveAll(defaultServerHomeDir)
+		defaultServer, err = getDefaultServer(algo, size)
+		if err != nil {
+			log.Errorf("Failed to get instance of server: %s", err)
+			os.Exit(1)
+		}
+
+		err = defaultServer.Start()
+		if err != nil {
+			log.Errorf("Failed to start server: %s", err)
+			os.Exit(1)
+		}
+
+		// rc := m.Run()
+		m.Run()
+
+		duration := time.Since(start)
+		f.SetCellValue("Sheet1", column+strconv.Itoa(i+1), duration.Microseconds())
+		err = defaultServer.Stop()
+		if err != nil {
+			// log.Errorf("Failed to stop server: %s, integration test results: %d", err, rc)
+			log.Errorf("Failed to stop server: %s, integration test results", err)
+			os.Exit(1)
+		}
+
+		os.RemoveAll(defaultServerHomeDir)
+		os.RemoveAll(storeCertsDir)
+		// os.Exit(rc)
+	}
+	f.Save()
+
+}
+
+func getDefaultServer(algo string, size int) (*lib.Server, error) {
+	affiliations := map[string]interface{}{
+		"hyperledger": map[string]interface{}{
+			"fabric":    []string{"ledger", "orderer", "security"},
+			"fabric-ca": nil,
+			"sdk":       nil,
+		},
+		"org2":      []string{"dept1"},
+		"org1":      nil,
+		"org2dept1": nil,
+	}
+	profiles := map[string]*config.SigningProfile{
+		"tls": &config.SigningProfile{
+			Usage:        []string{"signing", "key encipherment", "server auth", "client auth", "key agreement"},
+			ExpiryString: "8760h",
+		},
+		"ca": &config.SigningProfile{
+			Usage:        []string{"cert sign", "crl sign"},
+			ExpiryString: "8760h",
+			CAConstraint: config.CAConstraint{
+				IsCA:       true,
+				MaxPathLen: 0,
+			},
+		},
+	}
+	defaultProfile := &config.SigningProfile{
+		Usage:        []string{"cert sign"},
+		ExpiryString: "8760h",
+	}
+	srv := &lib.Server{
+		Config: &lib.ServerConfig{
+			Port:  defaultServerPort,
+			Debug: true,
+		},
+		CA: lib.CA{
+			Config: &lib.CAConfig{
+				Intermediate: lib.IntermediateCA{
+					ParentServer: lib.ParentServer{
+						URL: "",
+					},
+				},
+				Affiliations: affiliations,
+				Registry: lib.CAConfigRegistry{
+					MaxEnrollments: -1,
+				},
+				Signing: &config.Signing{
+					Profiles: profiles,
+					Default:  defaultProfile,
+				},
+				Version: "1.1.0", // The default test server/ca should use the latest version
+				CSR: api.CSRInfo{
+					KeyRequest: &api.KeyRequest{Algo: algo, Size: size},
+				},
+				CSP: &factory.FactoryOpts{
+					SwOpts: &factory.SwOpts{
+						SecLevel: size,
+					},
+				},
+			},
+		},
+		HomeDir: defaultServerHomeDir,
+	}
+	// The bootstrap user's affiliation is the empty string, which
+	// means the user is at the affiliation root
+	err := srv.RegisterBootstrapUser("admin", "adminpw", "")
+	if err != nil {
+		return nil, err
+	}
+	return srv, nil
 }

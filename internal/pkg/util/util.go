@@ -261,7 +261,7 @@ func VerifyToken(csp bccsp.BCCSP, token string, method, uri string, body []byte,
 	if pk2 == nil {
 		return nil, errors.New("Public Key Cannot be imported into BCCSP")
 	}
-
+	log.Debugf("pk2= %t \n %v", pk2)
 	//bccsp.X509PublicKeyImportOpts
 	//Using default hash algo
 	digest, digestError := csp.Hash([]byte(sigString), &bccsp.SHAOpts{})
@@ -270,6 +270,9 @@ func VerifyToken(csp bccsp.BCCSP, token string, method, uri string, body []byte,
 	}
 
 	valid, validErr := csp.Verify(pk2, sig, digest, nil)
+	if validErr != nil || !valid {
+		valid, validErr = csp.Verify(pk2, sig, []byte(sigString), nil)
+	}
 	if compMode1_3 && !valid {
 		log.Debugf("Failed to verify token based on new authentication header requirements: %s", err)
 		sigString := b64Body + "." + b64Cert

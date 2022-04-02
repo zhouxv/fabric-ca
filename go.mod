@@ -2,7 +2,7 @@ module github.com/hyperledger/fabric-ca
 
 go 1.15
 
-replace github.com/hyperledger/fabric v1.4.11 => github.com/zhouxv/fabric v1.4.13-0.20220319163203-19d166de80dc
+replace github.com/hyperledger/fabric v1.4.11 => github.com/zhouxv/fabric v1.4.13-0.20220402083447-c01806a75654
 
 replace github.com/cloudflare/cfssl v1.4.1 => github.com/zhouxv/cfssl v0.0.0-20220320083421-6e22181be225
 
@@ -28,6 +28,7 @@ require (
 	github.com/onsi/ginkgo v1.14.2
 	github.com/onsi/gomega v1.10.3
 	github.com/op/go-logging v0.0.0-20160315200505-970db520ece7
+	github.com/open-quantum-safe/liboqs-go v0.0.0-20220105163900-e0f759d70fa5
 	github.com/pkg/errors v0.9.1
 	github.com/pkg/profile v1.5.0
 	github.com/prometheus/client_golang v1.1.0
@@ -38,6 +39,7 @@ require (
 	github.com/spf13/viper v1.3.2
 	github.com/stretchr/testify v1.7.1-0.20210116013205-6990a05d54c2
 	github.com/sykesm/zap-logfmt v0.0.4 // indirect
+	github.com/xuri/excelize/v2 v2.5.0
 	golang.org/x/crypto v0.0.0-20220315160706-3147a52a75dd
 	gopkg.in/asn1-ber.v1 v1.0.0-20181015200546-f715ec2f112d // indirect
 	gopkg.in/check.v1 v1.0.0-20190902080502-41f04d3bba15 // indirect

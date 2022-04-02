@@ -15,8 +15,8 @@ import "github.com/hyperledger/fabric-ca/internal/pkg/api"
 // configuration options
 func GetKeyRequest(cfg *CAConfig) *api.KeyRequest {
 	if cfg.CSP.SwOpts != nil {
-		// return &api.KeyRequest{Algo: "ecdsa", Size: cfg.CSP.SwOpts.SecLevel}
-		return &api.KeyRequest{Algo: "Dilithium3", Size: cfg.CSP.SwOpts.SecLevel}
+		return &api.KeyRequest{Algo: "ecdsa", Size: cfg.CSP.SwOpts.SecLevel}
+		// return &api.KeyRequest{Algo: "Dilithium3", Size: cfg.CSP.SwOpts.SecLevel}
 	}
 	return api.NewKeyRequest()
 }
